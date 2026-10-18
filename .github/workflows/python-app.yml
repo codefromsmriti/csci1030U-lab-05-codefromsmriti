@@ -1,0 +1,59 @@
+# Autograder for this lab.
+#
+# This workflow does NOT run automatically. It is triggered by the instructor or TA,
+# in batch, against the specific commit a student submitted in the Canvas lab quiz.
+# Two reasons: it keeps the organization's shared Actions minutes for grading rather
+# than for every student push, and it means one run per student per lab, on a known
+# snapshot, instead of a pile of runs whose results nobody reads.
+#
+# Students: run the tests on your own machine with `pytest` - that is your feedback
+# loop, and it is faster than waiting for a CI run.
+#
+# Staff: see github/run_autograder.py in the course repo to dispatch this across a
+# whole class in one command.
+
+name: Autograde
+
+run-name: autograde ${{ inputs.commit }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Commit hash to grade (or a branch name such as main)"
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        # Accepts a full commit SHA as well as a branch name. A SHA that no longer
+        # exists (a force-push, or a hash typed wrong in the quiz) fails here, which
+        # is itself the answer you want.
+        ref: ${{ inputs.commit }}
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.12"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test with pytest
+      run: |
+        pytest
